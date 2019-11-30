@@ -1,0 +1,52 @@
+#!/usr/bin/env python
+
+import os
+from random import shuffle
+import subprocess
+import time
+
+#  Directory where I keep my desktop background pictures
+dir = '/raidarray/Pictures/Chromecast Home'
+
+#  How often do we make a switch, in seconds?
+wait_time = 60 * 60 * 6
+
+#  Get a randomized list of the pictures in the dir
+pictures = []
+for (dirpath, dirnames, filenames) in os.walk(dir):
+	for file in filenames:
+		pictures.append(os.path.join(dirpath, file))
+	break
+shuffle(pictures)
+
+#  Use a config file to keep track of the time of the last switch
+config_file = os.path.join(os.path.expanduser('~'), '.' + os.path.basename(__file__))
+if os.path.exists(config_file):
+	last_change = os.stat(config_file).st_mtime
+	now = time.time()
+	delay = wait_time - (now - last_change)
+	if delay < 0:
+		delay = 0
+else:
+	delay = 0
+
+#  Loop forever
+picture_ctr = 0
+while True:
+	
+	#  Wait for the wait_time to expire
+	time.sleep(delay)
+	#  Set all future delays to the full wait_time
+	delay = wait_time
+
+	#  Set the new background and screensaver picture and touch the
+	#  config file
+	try:
+		subprocess.check_call("dconf write /org/gnome/desktop/background/picture-uri \"\'file://{}\'\"".format(pictures[picture_ctr]), shell=True)
+		subprocess.check_call("dconf write /org/gnome/desktop/screensaver/picture-uri \"\'file://{}\'\"".format(pictures[picture_ctr]), shell=True)
+		picture_ctr = picture_ctr + 1
+		f = open(config_file, "w")
+		f.close()
+	except subprocess.CalledProcessError as e:
+		print e.output
+		exit(e.returncode)
